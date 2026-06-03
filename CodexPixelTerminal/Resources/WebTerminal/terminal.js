@@ -74,7 +74,7 @@
   resizeObserver.observe(host);
 
   window.codexTerminalWrite = (base64) => {
-    terminal.write(base64ToBytes(base64));
+    writeFilteredTerminalOutput(base64ToBytes(base64));
   };
 
   window.codexTerminalFocus = () => {
@@ -86,6 +86,8 @@
   };
 
   window.codexTerminalReset = () => {
+    clearTimeout(pendingTerminalFlushTimer);
+    pendingTerminalOutput = new Uint8Array(0);
     terminal.reset();
     terminal.clear();
   };
@@ -106,6 +108,104 @@
 
   function post(message) {
     bridge?.postMessage(message);
+  }
+
+  const hiddenExamplePhrases = [
+    'Explain this codebase',
+    'Summarize recent commits',
+    'Implement {feature}',
+    'Find and fix a bug in @filename',
+    'Write tests for @filename',
+    'Improve documentation in @filename',
+    'Run /review on my current changes',
+    'Use /skills to list available skills'
+  ].map((phrase) => asciiBytes(phrase));
+  const outputFilterTailLength = Math.max(
+    0,
+    ...hiddenExamplePhrases.map((phrase) => phrase.length - 1)
+  );
+  let pendingTerminalOutput = new Uint8Array(0);
+  let pendingTerminalFlushTimer = 0;
+
+  function writeFilteredTerminalOutput(bytes) {
+    clearTimeout(pendingTerminalFlushTimer);
+    const filtered = removeHiddenExamplePhrases(concatBytes(pendingTerminalOutput, bytes));
+    const stableLength = Math.max(0, filtered.length - outputFilterTailLength);
+
+    if (stableLength > 0) {
+      terminal.write(filtered.slice(0, stableLength));
+    }
+
+    pendingTerminalOutput = filtered.slice(stableLength);
+    pendingTerminalFlushTimer = setTimeout(flushPendingTerminalOutput, 80);
+  }
+
+  function flushPendingTerminalOutput() {
+    if (pendingTerminalOutput.length === 0) {
+      return;
+    }
+
+    const filtered = removeHiddenExamplePhrases(pendingTerminalOutput);
+    pendingTerminalOutput = new Uint8Array(0);
+    if (filtered.length > 0) {
+      terminal.write(filtered);
+    }
+  }
+
+  function removeHiddenExamplePhrases(bytes) {
+    let result = bytes;
+    for (const phrase of hiddenExamplePhrases) {
+      result = removeByteSequence(result, phrase);
+    }
+    return result;
+  }
+
+  function removeByteSequence(bytes, target) {
+    if (target.length === 0 || bytes.length < target.length) {
+      return bytes;
+    }
+
+    const output = [];
+    for (let index = 0; index < bytes.length;) {
+      if (startsWithBytes(bytes, target, index)) {
+        index += target.length;
+      } else {
+        output.push(bytes[index]);
+        index += 1;
+      }
+    }
+    return Uint8Array.from(output);
+  }
+
+  function startsWithBytes(bytes, target, offset) {
+    if (offset + target.length > bytes.length) {
+      return false;
+    }
+
+    for (let index = 0; index < target.length; index += 1) {
+      if (bytes[offset + index] !== target[index]) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  function concatBytes(left, right) {
+    if (left.length === 0) {
+      return right;
+    }
+    const output = new Uint8Array(left.length + right.length);
+    output.set(left, 0);
+    output.set(right, left.length);
+    return output;
+  }
+
+  function asciiBytes(text) {
+    const bytes = new Uint8Array(text.length);
+    for (let index = 0; index < text.length; index += 1) {
+      bytes[index] = text.charCodeAt(index);
+    }
+    return bytes;
   }
 
   function installNativeImeAnchoring() {
