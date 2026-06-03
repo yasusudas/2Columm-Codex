@@ -2,6 +2,7 @@ import SwiftUI
 
 struct PixelAgentsPane: View {
     @ObservedObject var pixelServer: PixelAgentsServerController
+    @ObservedObject var terminalSession: TerminalSession
 
     var body: some View {
         VStack(spacing: 0) {
@@ -26,17 +27,13 @@ struct PixelAgentsPane: View {
 
             Divider()
 
-            PixelAgentsWebView(url: pixelServer.webURL, reloadToken: pixelServer.reloadToken)
-                .overlay(alignment: .bottomLeading) {
-                    if !pixelServer.message.isEmpty {
-                        Text(pixelServer.message)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .padding(8)
-                            .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 6))
-                            .padding(10)
-                    }
+            PixelAgentsWebView(
+                url: pixelServer.webURL,
+                reloadToken: pixelServer.reloadToken,
+                onLaunchAgent: {
+                    terminalSession.restart()
                 }
+            )
         }
     }
 }

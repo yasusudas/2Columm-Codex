@@ -6,7 +6,7 @@ struct ContentView: View {
 
     var body: some View {
         HSplitView {
-            PixelAgentsPane(pixelServer: pixelServer)
+            PixelAgentsPane(pixelServer: pixelServer, terminalSession: terminalSession)
                 .frame(minWidth: 480, idealWidth: 680)
 
             TerminalPane(terminalSession: terminalSession)
