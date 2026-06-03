@@ -16,6 +16,7 @@ final class TerminalSession: ObservableObject {
 
     private static weak var current: TerminalSession?
     private var terminateProcess: (@MainActor () -> Void)?
+    private var ignoredTerminationCallbacks = 0
 
     init() {
         Self.current = self
@@ -55,6 +56,18 @@ final class TerminalSession: ObservableObject {
 
     func markRunning() {
         status = .running
+    }
+
+    func ignoreNextTerminationCallback() {
+        ignoredTerminationCallbacks += 1
+    }
+
+    func handleProcessTerminated(exitCode: Int32?) {
+        if ignoredTerminationCallbacks > 0 {
+            ignoredTerminationCallbacks -= 1
+            return
+        }
+        markExited(exitCode: exitCode)
     }
 
     func markExited(exitCode: Int32?) {

@@ -9,14 +9,15 @@ struct TerminalEmulatorView: NSViewRepresentable {
         Coordinator(session: session)
     }
 
-    func makeNSView(context: Context) -> LocalProcessTerminalView {
-        let terminalView = LocalProcessTerminalView(frame: .zero)
+    func makeNSView(context: Context) -> IMEAwareLocalProcessTerminalView {
+        let terminalView = IMEAwareLocalProcessTerminalView(frame: .zero)
         terminalView.processDelegate = context.coordinator
         terminalView.font = NSFont.monospacedSystemFont(ofSize: 13, weight: .regular)
         terminalView.nativeBackgroundColor = NSColor(calibratedWhite: 0.04, alpha: 1.0)
         terminalView.nativeForegroundColor = NSColor(calibratedWhite: 0.88, alpha: 1.0)
         terminalView.caretColor = NSColor.systemGreen
         terminalView.selectedTextBackgroundColor = NSColor.systemGreen.withAlphaComponent(0.35)
+        terminalView.synchronizeMarkedTextAppearance()
         terminalView.allowMouseReporting = true
         terminalView.translatesAutoresizingMaskIntoConstraints = false
         context.coordinator.terminalView = terminalView
@@ -37,14 +38,14 @@ struct TerminalEmulatorView: NSViewRepresentable {
         return terminalView
     }
 
-    func updateNSView(_ terminalView: LocalProcessTerminalView, context: Context) {
+    func updateNSView(_ terminalView: IMEAwareLocalProcessTerminalView, context: Context) {
         if context.coordinator.lastStartRequest != session.startRequest {
             context.coordinator.lastStartRequest = session.startRequest
             context.coordinator.startCodex()
         }
     }
 
-    static func dismantleNSView(_ terminalView: LocalProcessTerminalView, coordinator: Coordinator) {
+    static func dismantleNSView(_ terminalView: IMEAwareLocalProcessTerminalView, coordinator: Coordinator) {
         terminalView.terminate()
         coordinator.session.unbindTermination()
     }
@@ -64,6 +65,14 @@ struct TerminalEmulatorView: NSViewRepresentable {
                 return
             }
 
+            guard let codexBinary = AppPaths.resolvedCodexBinary else {
+                session.markFailed("Codex CLI executable was not found in PATH or common install locations.")
+                return
+            }
+
+            if terminalView.process?.running == true {
+                session.ignoreNextTerminationCallback()
+            }
             terminalView.terminate()
 
             var environment = ProcessInfo.processInfo.environment
@@ -76,7 +85,7 @@ struct TerminalEmulatorView: NSViewRepresentable {
                 executable: "/bin/zsh",
                 args: [
                     "-lc",
-                    "exec \(AppPaths.codexBinary.shellEscaped)",
+                    "exec \(codexBinary.shellEscaped)",
                 ],
                 environment: environment.map { "\($0.key)=\($0.value)" },
                 currentDirectory: AppPaths.projectRoot.path
@@ -111,7 +120,7 @@ struct TerminalEmulatorView: NSViewRepresentable {
         func processTerminated(source: TerminalView, exitCode: Int32?) {
             let session = session
             Task { @MainActor in
-                session.markExited(exitCode: exitCode)
+                session.handleProcessTerminated(exitCode: exitCode)
             }
         }
     }

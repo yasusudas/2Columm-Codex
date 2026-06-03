@@ -82,9 +82,18 @@ final class PixelAgentsServerController: ObservableObject {
         }
         await removeStaleDiscoveryIfNeeded()
 
+        guard let nodeBinary = AppPaths.resolvedNodeBinary else {
+            markFailed("Node.js executable was not found in PATH or common install locations.")
+            return
+        }
+        guard FileManager.default.fileExists(atPath: AppPaths.pixelAgentsCli.path) else {
+            markFailed("Pixel Agents CLI was not found at \(AppPaths.pixelAgentsCli.path)")
+            return
+        }
+
         let process = Process()
         let pipe = Pipe()
-        process.executableURL = URL(fileURLWithPath: AppPaths.nodeBinary)
+        process.executableURL = URL(fileURLWithPath: nodeBinary)
         process.arguments = [
             AppPaths.pixelAgentsCli.path,
             "--host",
@@ -92,7 +101,7 @@ final class PixelAgentsServerController: ObservableObject {
             "--port",
             String(AppPaths.pixelAgentsPort),
         ]
-        process.currentDirectoryURL = AppPaths.projectRoot
+        process.currentDirectoryURL = AppPaths.pixelAgentsRoot
         var environment = ProcessInfo.processInfo.environment
         environment["HOME"] = AppPaths.pixelAgentsHome.path
         environment["PATH"] = AppPaths.appPath

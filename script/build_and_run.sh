@@ -9,9 +9,10 @@ MIN_SYSTEM_VERSION="14.0"
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PACKAGE_DIR="$ROOT_DIR/CodexPixelTerminal"
-DIST_DIR="$ROOT_DIR/dist"
 CACHE_DIR="$ROOT_DIR/.build/codex-pixel-terminal-cache"
+DIST_DIR="${TMPDIR:-/tmp}/codex-pixel-terminal-dist"
 APP_BUNDLE="$DIST_DIR/$APP_NAME.app"
+INSTALL_BUNDLE="/Applications/$APP_NAME.app"
 APP_CONTENTS="$APP_BUNDLE/Contents"
 APP_MACOS="$APP_CONTENTS/MacOS"
 APP_RESOURCES="$APP_CONTENTS/Resources"
@@ -48,6 +49,7 @@ while IFS= read -r bundle; do
   ditto --norsrc --noextattr "$bundle" "$APP_RESOURCES/$(basename "$bundle")"
 done < <(find "$BUILD_BIN_DIR" -maxdepth 1 -name '*.bundle' -type d -print)
 ditto --norsrc --noextattr "$PIXEL_AGENTS_SOURCE" "$APP_RESOURCES/PixelAgents"
+find "$APP_BUNDLE" -name .DS_Store -delete
 
 cat >"$INFO_PLIST" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
@@ -74,8 +76,22 @@ cat >"$INFO_PLIST" <<PLIST
 </plist>
 PLIST
 
+xattr -cr "$APP_BUNDLE" || true
+codesign --force --deep --sign - "$APP_BUNDLE"
+xattr -cr "$APP_BUNDLE" || true
+codesign --verify --deep --strict --verbose=2 "$APP_BUNDLE"
+
 open_app() {
   /usr/bin/open -n "$APP_BUNDLE"
+}
+
+install_app() {
+  rm -rf "$INSTALL_BUNDLE"
+  ditto --norsrc --noextattr "$APP_BUNDLE" "$INSTALL_BUNDLE"
+  find "$INSTALL_BUNDLE" -name .DS_Store -delete
+  xattr -cr "$INSTALL_BUNDLE" || true
+  codesign --verify --deep --strict --verbose=2 "$INSTALL_BUNDLE"
+  echo "$INSTALL_BUNDLE"
 }
 
 case "$MODE" in
@@ -101,8 +117,11 @@ case "$MODE" in
   --bundle|bundle)
     echo "$APP_BUNDLE"
     ;;
+  --install|install)
+    install_app
+    ;;
   *)
-    echo "usage: $0 [run|--debug|--logs|--telemetry|--verify|--bundle]" >&2
+    echo "usage: $0 [run|--debug|--logs|--telemetry|--verify|--bundle|--install]" >&2
     exit 2
     ;;
 esac
