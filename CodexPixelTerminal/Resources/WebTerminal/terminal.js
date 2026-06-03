@@ -6,7 +6,9 @@
     allowProposedApi: true,
     allowTransparency: false,
     cursorBlink: true,
-    cursorStyle: 'block',
+    cursorInactiveStyle: 'bar',
+    cursorStyle: 'bar',
+    cursorWidth: 2,
     drawBoldTextInBrightColors: true,
     fontFamily: 'Menlo, Monaco, "SF Mono", "Hiragino Sans", monospace',
     fontSize: 13,
@@ -19,8 +21,9 @@
     theme: {
       background: '#0a0a0a',
       foreground: '#e0e0e0',
-      cursor: '#30d158',
-      selectionBackground: '#30d15855',
+      cursor: '#ffffff',
+      cursorAccent: '#0a0a0a',
+      selectionBackground: '#ffffff33',
       black: '#1c1c1c',
       red: '#ff453a',
       green: '#30d158',
@@ -107,7 +110,8 @@
 
   function installNativeImeAnchoring() {
     const textarea = terminal.textarea;
-    if (!textarea) {
+    const compositionView = host.querySelector('.composition-view');
+    if (!textarea || !compositionView) {
       return;
     }
 
@@ -116,15 +120,140 @@
     textarea.autocorrect = 'off';
     textarea.autocapitalize = 'off';
 
+    let isComposing = false;
+    let compositionText = '';
+    let compositionStartOffset = 0;
+    let compositionFrame = 0;
+
     textarea.addEventListener('compositionstart', () => {
+      isComposing = true;
+      compositionText = '';
+      compositionStartOffset = textarea.selectionStart ?? textarea.value.length;
       document.documentElement.classList.add('ime-composing');
+      compositionView.classList.add('codex-ime-overlay');
+      scheduleCompositionOverlayUpdate();
+    });
+
+    textarea.addEventListener('compositionupdate', (event) => {
+      compositionText = event.data ?? '';
+      scheduleCompositionOverlayUpdate();
     });
 
     textarea.addEventListener('compositionend', () => {
+      isComposing = false;
+      compositionText = '';
       requestAnimationFrame(() => {
         document.documentElement.classList.remove('ime-composing');
+        compositionView.classList.remove('codex-ime-overlay');
+        compositionView.replaceChildren();
       });
     });
+
+    textarea.addEventListener('input', () => {
+      if (isComposing) {
+        scheduleCompositionOverlayUpdate();
+      }
+    });
+
+    textarea.addEventListener('keydown', () => {
+      if (isComposing) {
+        scheduleCompositionOverlayUpdate();
+      }
+    });
+
+    textarea.addEventListener('keyup', () => {
+      if (isComposing) {
+        scheduleCompositionOverlayUpdate();
+      }
+    });
+
+    document.addEventListener('selectionchange', () => {
+      if (isComposing && document.activeElement === textarea) {
+        scheduleCompositionOverlayUpdate();
+      }
+    });
+
+    terminal.onCursorMove(() => {
+      if (isComposing) {
+        scheduleCompositionOverlayUpdate();
+      }
+    });
+
+    function scheduleCompositionOverlayUpdate() {
+      if (compositionFrame) {
+        return;
+      }
+
+      compositionFrame = requestAnimationFrame(() => {
+        compositionFrame = 0;
+        updateCompositionOverlay();
+        if (isComposing) {
+          scheduleCompositionOverlayUpdate();
+        }
+      });
+    }
+
+    function updateCompositionOverlay() {
+      if (!isComposing) {
+        return;
+      }
+
+      const text = currentCompositionText();
+      const selection = currentCompositionSelection(text);
+      renderCompositionOverlay(text, selection.start, selection.end);
+    }
+
+    function currentCompositionText() {
+      if (compositionText.length > 0) {
+        return compositionText;
+      }
+
+      const pendingText = textarea.value.slice(compositionStartOffset);
+      return pendingText.length > 0 ? pendingText : textarea.value;
+    }
+
+    function currentCompositionSelection(text) {
+      const valueLength = textarea.value.length;
+      const hasNativeSelection = valueLength >= compositionStartOffset + text.length;
+      if (!hasNativeSelection) {
+        return { start: text.length, end: text.length };
+      }
+
+      const rawStart = textarea.selectionStart ?? valueLength;
+      const rawEnd = textarea.selectionEnd ?? rawStart;
+      return {
+        start: clamp(rawStart - compositionStartOffset, 0, text.length),
+        end: clamp(rawEnd - compositionStartOffset, 0, text.length)
+      };
+    }
+
+    function renderCompositionOverlay(text, selectionStart, selectionEnd) {
+      compositionView.replaceChildren();
+
+      appendSegment(text.slice(0, selectionStart), 'ime-segment');
+      appendSegment(text.slice(selectionStart, selectionEnd), 'ime-segment ime-selected-segment');
+
+      const caret = document.createElement('span');
+      caret.className = 'ime-caret';
+      caret.setAttribute('aria-hidden', 'true');
+      compositionView.appendChild(caret);
+
+      appendSegment(text.slice(selectionEnd), 'ime-segment');
+    }
+
+    function appendSegment(text, className) {
+      if (text.length === 0) {
+        return;
+      }
+      const segment = document.createElement('span');
+      segment.className = className;
+      segment.textContent = text;
+      compositionView.appendChild(segment);
+    }
+
+    function clamp(value, min, max) {
+      return Math.max(min, Math.min(max, value));
+    }
   }
 
   let fitTimer = 0;

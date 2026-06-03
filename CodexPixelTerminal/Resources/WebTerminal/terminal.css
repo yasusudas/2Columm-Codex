@@ -31,7 +31,7 @@ body {
 
 .xterm .composition-view {
   background: transparent;
-  border-bottom: 2px solid #0a84ff;
+  border-bottom: 2px solid #ffffff;
   box-sizing: border-box;
   color: #e0e0e0;
   min-width: 2px;
@@ -47,10 +47,17 @@ body {
   display: inline-flex;
 }
 
-.xterm .composition-view.active::after {
+.xterm .composition-view .ime-segment {
+  display: inline-block;
+}
+
+.xterm .composition-view .ime-selected-segment {
+  background: rgb(255 255 255 / 16%);
+}
+
+.xterm .composition-view .ime-caret {
   animation: ime-caret-blink 1s steps(1) infinite;
-  background: #30d158;
-  content: "";
+  background: #ffffff;
   display: inline-block;
   flex: 0 0 2px;
   height: 1.05em;
@@ -63,6 +70,8 @@ html.ime-composing .xterm .xterm-helper-textarea {
   background: transparent;
   caret-color: transparent;
   color: transparent;
+  font-family: Menlo, Monaco, "SF Mono", "Hiragino Sans", monospace;
+  font-size: 13px;
   opacity: 0.01;
   outline: none;
   overflow: visible;
