@@ -10,9 +10,15 @@ let package = Package(
     products: [
         .executable(name: "CodexPixelTerminal", targets: ["CodexPixelTerminal"]),
     ],
+    dependencies: [
+        .package(url: "https://github.com/migueldeicaza/SwiftTerm.git", .upToNextMajor(from: "1.13.0")),
+    ],
     targets: [
         .executableTarget(
-            name: "CodexPixelTerminal"
+            name: "CodexPixelTerminal",
+            dependencies: [
+                .product(name: "SwiftTerm", package: "SwiftTerm"),
+            ]
         ),
     ]
 )

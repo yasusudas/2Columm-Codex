@@ -11,6 +11,12 @@ struct TerminalPane: View {
                     .frame(width: 8, height: 8)
                 Text("Codex CLI")
                     .font(.headline)
+                if terminalSession.terminalTitle != "Codex CLI" {
+                    Text(terminalSession.terminalTitle)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                }
                 Text(terminalSession.status.label)
                     .foregroundStyle(.secondary)
                     .font(.caption)

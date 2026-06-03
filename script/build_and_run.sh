@@ -36,13 +36,17 @@ if [[ ! -d "$PIXEL_AGENTS_DIST/node_modules" ]]; then
 fi
 
 swift build --package-path "$PACKAGE_DIR" --scratch-path "$CACHE_DIR/build" -c release
-BUILD_BINARY="$(swift build --package-path "$PACKAGE_DIR" --scratch-path "$CACHE_DIR/build" -c release --show-bin-path)/$PROCESS_NAME"
+BUILD_BIN_DIR="$(swift build --package-path "$PACKAGE_DIR" --scratch-path "$CACHE_DIR/build" -c release --show-bin-path)"
+BUILD_BINARY="$BUILD_BIN_DIR/$PROCESS_NAME"
 
 rm -rf "$APP_BUNDLE"
 mkdir -p "$APP_MACOS" "$APP_RESOURCES"
 cp "$BUILD_BINARY" "$APP_BINARY"
 chmod +x "$APP_BINARY"
 cp "$APP_ICON_SOURCE" "$APP_RESOURCES/AppIcon.icns"
+while IFS= read -r bundle; do
+  ditto --norsrc --noextattr "$bundle" "$APP_RESOURCES/$(basename "$bundle")"
+done < <(find "$BUILD_BIN_DIR" -maxdepth 1 -name '*.bundle' -type d -print)
 ditto --norsrc --noextattr "$PIXEL_AGENTS_SOURCE" "$APP_RESOURCES/PixelAgents"
 
 cat >"$INFO_PLIST" <<PLIST
