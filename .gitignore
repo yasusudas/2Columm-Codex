@@ -51,6 +51,7 @@ AGENTS.override.md
 
 # caches
 .cache/
+.npm-cache/
 .turbo/
 .parcel-cache/
 .eslintcache
@@ -107,3 +108,46 @@ CHANGELOG.ignore.md
 # Python bytecode files
 __pycache__/
 *.pyc
+
+# Upstream Codex workspace files that are not part of this macOS app.
+/.bazelignore
+/.bazelrc
+/.bazelversion
+/.codespellignore
+/.codespellrc
+/.devcontainer/
+/.gitattributes
+/.github/
+/.markdownlint-cli2.yaml
+/.npmrc
+/.prettierignore
+/.prettierrc.toml
+/BUILD.bazel
+/CHANGELOG.md
+/LICENSE
+/MODULE.bazel
+/MODULE.bazel.lock
+/NOTICE
+/README.md
+/SECURITY.md
+/announcement_tip.toml
+/cliff.toml
+/codex-cli/
+/codex-rs/
+/defs.bzl
+/docs/
+/flake.lock
+/flake.nix
+/justfile
+/package.json
+/patches/
+/pixel-agents-main/
+/pnpm-lock.yaml
+/pnpm-workspace.yaml
+/rbe.bzl
+/scripts/
+/sdk/
+/third_party/
+/tools/
+/workspace_root_test_launcher.bat.tpl
+/workspace_root_test_launcher.sh.tpl

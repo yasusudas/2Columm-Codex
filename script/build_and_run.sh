@@ -21,6 +21,7 @@ INFO_PLIST="$APP_CONTENTS/Info.plist"
 APP_ICON_SOURCE="$PACKAGE_DIR/Resources/AppIcon.icns"
 PIXEL_AGENTS_SOURCE="$PACKAGE_DIR/Resources/PixelAgents"
 PIXEL_AGENTS_DIST="$PIXEL_AGENTS_SOURCE/dist"
+WEB_TERMINAL_SOURCE="$PACKAGE_DIR/Resources/WebTerminal"
 
 while IFS= read -r app_pid; do
   pkill -P "$app_pid" >/dev/null 2>&1 || true
@@ -34,6 +35,9 @@ export XDG_CACHE_HOME="$CACHE_DIR/xdg"
 
 if [[ ! -d "$PIXEL_AGENTS_DIST/node_modules" ]]; then
   npm ci --omit=dev --ignore-scripts --prefix "$PIXEL_AGENTS_DIST"
+fi
+if [[ ! -d "$WEB_TERMINAL_SOURCE/node_modules/@xterm/xterm" ]]; then
+  npm ci --omit=dev --ignore-scripts --prefix "$WEB_TERMINAL_SOURCE" --cache "$CACHE_DIR/npm"
 fi
 
 swift build --package-path "$PACKAGE_DIR" --scratch-path "$CACHE_DIR/build" -c release
@@ -49,6 +53,8 @@ while IFS= read -r bundle; do
   ditto --norsrc --noextattr "$bundle" "$APP_RESOURCES/$(basename "$bundle")"
 done < <(find "$BUILD_BIN_DIR" -maxdepth 1 -name '*.bundle' -type d -print)
 ditto --norsrc --noextattr "$PIXEL_AGENTS_SOURCE" "$APP_RESOURCES/PixelAgents"
+ditto --norsrc --noextattr "$WEB_TERMINAL_SOURCE" "$APP_RESOURCES/WebTerminal"
+rm -rf "$APP_RESOURCES/WebTerminal/.npm-cache"
 find "$APP_BUNDLE" -name .DS_Store -delete
 
 cat >"$INFO_PLIST" <<PLIST
@@ -70,6 +76,10 @@ cat >"$INFO_PLIST" <<PLIST
   <string>AppIcon</string>
   <key>LSMinimumSystemVersion</key>
   <string>$MIN_SYSTEM_VERSION</string>
+  <key>NSDesktopFolderUsageDescription</key>
+  <string>Codex Pixel Terminal launches Codex CLI in your project folders so it can read and edit files there.</string>
+  <key>NSDocumentsFolderUsageDescription</key>
+  <string>Codex Pixel Terminal launches Codex CLI in your project folders so it can read and edit files there.</string>
   <key>NSPrincipalClass</key>
   <string>NSApplication</string>
 </dict>

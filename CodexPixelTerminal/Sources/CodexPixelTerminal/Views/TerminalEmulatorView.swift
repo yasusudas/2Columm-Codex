@@ -1,5 +1,4 @@
 import AppKit
-import SwiftTerm
 import SwiftUI
 
 struct TerminalEmulatorView: NSViewRepresentable {
@@ -9,16 +8,9 @@ struct TerminalEmulatorView: NSViewRepresentable {
         Coordinator(session: session)
     }
 
-    func makeNSView(context: Context) -> IMEAwareLocalProcessTerminalView {
-        let terminalView = IMEAwareLocalProcessTerminalView(frame: .zero)
-        terminalView.processDelegate = context.coordinator
-        terminalView.font = NSFont.monospacedSystemFont(ofSize: 13, weight: .regular)
-        terminalView.nativeBackgroundColor = NSColor(calibratedWhite: 0.04, alpha: 1.0)
-        terminalView.nativeForegroundColor = NSColor(calibratedWhite: 0.88, alpha: 1.0)
-        terminalView.caretColor = NSColor.systemGreen
-        terminalView.selectedTextBackgroundColor = NSColor.systemGreen.withAlphaComponent(0.35)
-        terminalView.synchronizeMarkedTextAppearance()
-        terminalView.allowMouseReporting = true
+    func makeNSView(context: Context) -> XtermTerminalView {
+        let terminalView = XtermTerminalView(frame: .zero)
+        terminalView.delegate = context.coordinator
         terminalView.translatesAutoresizingMaskIntoConstraints = false
         context.coordinator.terminalView = terminalView
         let clickRecognizer = NSClickGestureRecognizer(
@@ -32,28 +24,29 @@ struct TerminalEmulatorView: NSViewRepresentable {
         }
 
         DispatchQueue.main.async {
-            terminalView.window?.makeFirstResponder(terminalView)
+            terminalView.focusTerminal()
         }
 
         return terminalView
     }
 
-    func updateNSView(_ terminalView: IMEAwareLocalProcessTerminalView, context: Context) {
+    func updateNSView(_ terminalView: XtermTerminalView, context: Context) {
         if context.coordinator.lastStartRequest != session.startRequest {
             context.coordinator.lastStartRequest = session.startRequest
             context.coordinator.startCodex()
         }
     }
 
-    static func dismantleNSView(_ terminalView: IMEAwareLocalProcessTerminalView, coordinator: Coordinator) {
+    static func dismantleNSView(_ terminalView: XtermTerminalView, coordinator: Coordinator) {
         terminalView.terminate()
         coordinator.session.unbindTermination()
     }
 
-    final class Coordinator: NSObject, LocalProcessTerminalViewDelegate {
-        weak var terminalView: LocalProcessTerminalView?
+    final class Coordinator: NSObject, XtermTerminalViewDelegate {
+        weak var terminalView: XtermTerminalView?
         let session: TerminalSession
         var lastStartRequest = 0
+        private var pendingStart = false
 
         init(session: TerminalSession) {
             self.session = session
@@ -65,15 +58,19 @@ struct TerminalEmulatorView: NSViewRepresentable {
                 return
             }
 
+            guard terminalView.isReady else {
+                pendingStart = true
+                return
+            }
+
             guard let codexBinary = AppPaths.resolvedCodexBinary else {
                 session.markFailed("Codex CLI executable was not found in PATH or common install locations.")
                 return
             }
 
-            if terminalView.process?.running == true {
+            if terminalView.isProcessRunning {
                 session.ignoreNextTerminationCallback()
             }
-            terminalView.terminate()
 
             var environment = ProcessInfo.processInfo.environment
             environment["PATH"] = AppPaths.appPath
@@ -91,10 +88,7 @@ struct TerminalEmulatorView: NSViewRepresentable {
                 currentDirectory: AppPaths.projectRoot.path
             )
             session.markRunning()
-
-            DispatchQueue.main.async {
-                terminalView.window?.makeFirstResponder(terminalView)
-            }
+            pendingStart = false
         }
 
         @objc
@@ -103,21 +97,23 @@ struct TerminalEmulatorView: NSViewRepresentable {
             guard let terminalView else {
                 return
             }
-            terminalView.window?.makeFirstResponder(terminalView)
+            terminalView.focusTerminal()
         }
 
-        func sizeChanged(source: LocalProcessTerminalView, newCols: Int, newRows: Int) {}
+        func xtermTerminalReady(_ source: XtermTerminalView) {
+            if pendingStart || lastStartRequest > 0 {
+                startCodex()
+            }
+        }
 
-        func setTerminalTitle(source: LocalProcessTerminalView, title: String) {
+        func xtermTerminal(_ source: XtermTerminalView, didSetTitle title: String) {
             let session = session
             Task { @MainActor in
                 session.setTitle(title)
             }
         }
 
-        func hostCurrentDirectoryUpdate(source: TerminalView, directory: String?) {}
-
-        func processTerminated(source: TerminalView, exitCode: Int32?) {
+        func xtermTerminal(_ source: XtermTerminalView, processTerminated exitCode: Int32?) {
             let session = session
             Task { @MainActor in
                 session.handleProcessTerminated(exitCode: exitCode)

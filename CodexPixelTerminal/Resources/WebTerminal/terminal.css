@@ -1,0 +1,90 @@
+html,
+body,
+#terminal-host {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  background: #0a0a0a;
+}
+
+body {
+  color: #e0e0e0;
+}
+
+#terminal-host {
+  box-sizing: border-box;
+  padding: 8px 10px;
+}
+
+.xterm {
+  height: 100%;
+}
+
+.xterm .xterm-viewport {
+  background-color: transparent;
+}
+
+.xterm .xterm-screen {
+  height: 100%;
+}
+
+.xterm .composition-view {
+  background: transparent;
+  border-bottom: 2px solid #0a84ff;
+  box-sizing: border-box;
+  color: #e0e0e0;
+  min-width: 2px;
+  opacity: 1;
+  padding: 0;
+  pointer-events: none;
+  white-space: pre;
+  z-index: 11;
+}
+
+.xterm .composition-view.active {
+  align-items: center;
+  display: inline-flex;
+}
+
+.xterm .composition-view.active::after {
+  animation: ime-caret-blink 1s steps(1) infinite;
+  background: #30d158;
+  content: "";
+  display: inline-block;
+  flex: 0 0 2px;
+  height: 1.05em;
+  margin-left: 1px;
+  transform: translateY(1px);
+  width: 2px;
+}
+
+html.ime-composing .xterm .xterm-helper-textarea {
+  background: transparent;
+  caret-color: transparent;
+  color: transparent;
+  opacity: 0.01;
+  outline: none;
+  overflow: visible;
+  z-index: 10;
+}
+
+html.ime-composing .xterm.focus .xterm-cursor-layer {
+  opacity: 0;
+}
+
+.xterm.focus .xterm-cursor-layer {
+  opacity: 1;
+}
+
+@keyframes ime-caret-blink {
+  0%,
+  49% {
+    opacity: 1;
+  }
+
+  50%,
+  100% {
+    opacity: 0;
+  }
+}
